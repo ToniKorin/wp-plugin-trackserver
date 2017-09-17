@@ -5,7 +5,7 @@ Plugin Name: Trackserver
 Plugin Script: trackserver.php
 Plugin URI: https://www.grendelman.net/wp/trackserver-wordpress-plugin/
 Description: GPS Track Server for TrackMe, OruxMaps and others
-Version: 3.0.1
+Version: 3.1.0
 Author: Martijn Grendelman
 Author URI: http://www.grendelman.net/
 Text Domain: trackserver
@@ -13,6 +13,7 @@ Domain path: /lang
 License: GPL2
 
 === RELEASE NOTES ===
+2017-09-28 - v3.1.0 - Team Locator support
 2017-02-28 - v3.0.1 - cache busters for JavaScript files
 2017-02-27 - v3.0 - many new features, bugfixes, leaflet 1.0.3
 2016-12-23 - v2.3 - Bugfixes, KML file support
@@ -43,7 +44,7 @@ License: GPL2
 		define( 'TRACKSERVER_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 		define( 'TRACKSERVER_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 		define( 'TRACKSERVER_JSLIB', TRACKSERVER_PLUGIN_URL . 'lib/' );
-		define( 'TRACKSERVER_VERSION', '3.0.1-20170228' );
+		define( 'TRACKSERVER_VERSION', '3.1.0-20170928' );
 
 		/**
 		 * The main plugin class.
@@ -313,14 +314,14 @@ EOF;
 
 				// To be localized in wp_footer() with data from the shortcode(s). Enqueued last, in wp_enqueue_scripts.
 				// Also localized and enqueued in admin_enqueue_scripts
-				wp_register_script( 'trackserver', TRACKSERVER_PLUGIN_URL .'trackserver.js', array(), TRACKSERVER_VERSION, true );
+				wp_register_script( 'trackserver', TRACKSERVER_PLUGIN_URL .'trackserver.js?1', array(), TRACKSERVER_VERSION, true );
 
 				$settings = array(
 						'tile_url' => $this -> options['tile_url'],
 						'attribution' => $this -> options['attribution'],
 				);
-				wp_localize_script( 'trackserver', 'trackserver_settings', $settings );
 
+				wp_localize_script( 'trackserver', 'trackserver_settings', $settings );
 				$i18n = array(
 					'no_tracks_to_display' => __( 'No tracks to display.', 'trackserver' ),
 				);
@@ -435,6 +436,7 @@ EOF;
 						`source` varchar(255) NOT NULL,
 						`comment` varchar(255) NOT NULL,
 						`distance` int(11) NOT NULL,
+						`icon` varchar(64) NOT NULL,
 						PRIMARY KEY (`id`),
 						KEY `user_id` (`user_id`)
 						) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
@@ -998,7 +1000,6 @@ EOF;
 				$options['enable_proxy'] = (bool) $options['enable_proxy'];
 				return $options;
 			}
-
 			function register_settings () {
 				// All options in one array
 				register_setting( 'trackserver-options', 'trackserver_options', array( &$this, 'sanitize_option_values' ) );
@@ -1133,26 +1134,44 @@ EOF;
 
 				if ( count( $track_ids ) == 0 ) return array();
 
-				// Remove all non-numeric values from the tracks array and prepare query
-				$track_ids = array_map( 'intval', array_filter( $track_ids, 'is_numeric' ) );
-				$sql_in = "('" . implode("','", $track_ids) . "')";
+				if (strpos($track_ids[0], '-') !== false) {
+                                    echo 'ID range'; // then ignore others
+                                    $minMax = explode('-', $track_ids[0]);
+                                    $minMax = array_map( 'intval', array_filter( $minMax, 'is_numeric' ) );
+				} else {
+                                    // Remove all non-numeric values from the tracks array and prepare query
+                                    $track_ids = array_map( 'intval', array_filter( $track_ids, 'is_numeric' ) );
+                                    $sql_in = "('" . implode("','", $track_ids) . "')";
+				}
 
 				// If the author has the power, don't check the track's owner
 				if ( user_can( $author_id, 'trackserver_publish' ) ) {
-					$sql = 'SELECT id FROM ' . $this -> tbl_tracks . ' WHERE id IN ' . $sql_in;
+					if (isset($minMax)){
+					    $sql = 'SELECT id FROM ' . $this -> tbl_tracks . ' WHERE id>=' . $minMax[0] . ' AND id<=' . $minMax[1];
+					} else {
+					    $sql = 'SELECT id FROM ' . $this -> tbl_tracks . ' WHERE id IN ' . $sql_in;
+					}   
 				}
 				// Otherwise, filter the list of posts against the author ID
 				else {
-					$sql = $wpdb -> prepare( 'SELECT id FROM ' . $this -> tbl_tracks . ' WHERE id IN ' . $sql_in .
+					if (isset($minMax)){
+					    $sql = 'SELECT id FROM ' . $this -> tbl_tracks . ' WHERE id>=' . $minMax[0] . ' AND id<=' . $minMax[1] . ' AND user_id=' . $author_id;
+					} else {
+					    $sql = $wpdb -> prepare( 'SELECT id FROM ' . $this -> tbl_tracks . ' WHERE id IN ' . $sql_in .
 						' AND user_id=%d;', $author_id );
+					}
 				}
 				$validated_track_ids = $wpdb -> get_col( $sql );
 
-				// Restore track order as given in the shortcode
-				$trk0 = array();
-				foreach ( $track_ids as $tid ) {
-					if ( in_array( $tid, $validated_track_ids ) ) {
-						$trk0[] = $tid;
+				if (isset($minMax)){
+					$trk0 = $validated_track_ids;                               
+				} else {
+					// Restore track order as given in the shortcode
+					$trk0 = array();
+					foreach ( $track_ids as $tid ) {
+					    if ( in_array( $tid, $validated_track_ids ) ) {
+					         $trk0[] = $tid;
+					    }
 					}
 				}
 				return $trk0;
@@ -1381,6 +1400,8 @@ EOF;
 					'points'     => false,
 					'zoom'       => false,
 					'maxage'     => false,
+					'label'      => false,
+					'interval'   => 10
 				);
 
 				$atts = shortcode_atts( $defaults, $atts, $this -> shortcode );
@@ -1408,11 +1429,10 @@ EOF;
 					$atts['track'] = $atts['id'];
 				}
 
-				$style  = $this->get_style( $atts, false );     // result is not used
-				$points = $this->get_points( $atts, false );    // result is not used
-				$markers = $this->get_markers( $atts, false );  // result is not used
+				$style  = $this -> get_style( $atts, false );     // result is not used
+				$points = $this -> get_points( $atts, false );    // result is not used
+				$markers = $this -> get_markers( $atts, false );  // result is not used
 				$maxage = $this->get_maxage( $atts['maxage'] );
-
 				list( $validated_track_ids, $validated_user_ids ) = $this -> validate_ids( $atts );
 
 				if ( count( $validated_user_ids ) > 0 ) {
@@ -1447,7 +1467,7 @@ EOF;
 						);
 					}
 
-					$live_tracks = $this->get_live_tracks( $validated_user_ids, $maxage );
+					$live_tracks = $this -> get_live_tracks( $validated_user_ids, $maxage );
 					foreach ($live_tracks as $validated_id) {
 						$tracks[] = array(
 							'track_id'   => $validated_id,
@@ -1515,6 +1535,8 @@ EOF;
 				$infobar_tpl = get_user_meta( $author_id, 'ts_infobar_template', true );
 				$zoom        = ( $atts['zoom'] !== false ? intval( $atts['zoom'] ) : ( $is_live ? '16' : '6' ) );
 				$fit         = ( $atts['zoom'] !== false ? false : true ); // zoom is always set, so we need a signal for altering fitBounds() options
+				$label       = ( in_array( $atts['label'],    array( 'true',  't', 'yes', 'y' ), true ) ? true  : false ); // default false
+				$interval    = intval( $atts['interval'] ) * 1000;
 
 				$mapdata = array(
 					'div_id'       => $div_id,
@@ -1528,6 +1550,8 @@ EOF;
 					'infobar'      => $infobar,
 					'alltracks'    => $alltracks_url,
 					'fit'          => $fit,
+					'label'        => $label,
+					'interval'    => $interval 
 				);
 
 				if ($infobar) {
@@ -2166,7 +2190,9 @@ EOF;
 
 			/**
 			 * Handle SendLocation request
-			 *
+			 * 
+			 * Sample request from Team Locator
+			 * http://www.locator.dev/sendlocation/korin/39533b99/?lat={lat}&lon={lon}&trackname={member}&timestamp={mTime}&altitude={altitude}&speed={speed}&heading={heading}
 			 * @since 2.0
 			 */
 			function handle_sendlocation_request( $username, $key ) {
@@ -2174,13 +2200,15 @@ EOF;
 
 				// If this function returns, we're OK. We use the same function as OsmAnd.
 				$user_id = $this -> validate_user_meta_key( $username, $key, 'ts_sendlocation_key' );
-
-				// SendLocation doesn't send a timestamp
-				$ts = current_time( 'timestamp' );
-				$occurred = date( 'Y-m-d H:i:s', $ts );
-
-				// Get track name from strftime format string
-				$trackname = strftime( $this -> options['sendlocation_trackname_format'], $ts );
+				
+				$trackname = urldecode( $_GET['trackname'] );
+				if ( $trackname != '' ){
+				    // SendLocation doesn't send a timestamp
+				    $ts = current_time( 'timestamp' );
+				    $occurred = date( 'Y-m-d H:i:s', $ts );
+				    // Get track name from strftime format string
+				    $trackname = strftime( $this -> options['sendlocation_trackname_format'], $ts );                                    
+				}
 
 				if ( $trackname != '' ) {
 					$track_id = $this -> get_track_by_name( $user_id, $trackname );
@@ -2236,8 +2264,7 @@ EOF;
 						}
 					}
 				}
-
-				$this -> http_terminate( 400, 'Bad request' );
+				$this -> http_terminate( 400, 'Bad request');
 			}
 
 			/**
@@ -2803,7 +2830,6 @@ EOF;
 					$ts = gmdate( 'Y-m-d H:i:s', ( time() + ( get_option( 'gmt_offset' ) * HOUR_IN_SECONDS ) - $maxage ) );
 					$sql .= " AND uu.endts > '$ts'";
 				}
-
 				$res = $wpdb -> get_results( $sql, OBJECT_K );
 				$track_ids = array();
 				foreach ($user_ids as $uid) {
@@ -2944,7 +2970,6 @@ EOF;
 						$this -> http_terminate( '403', 'Proxy disabled' );
 					}
 				}
-
 				// Refuse to serve the track without a valid nonce. Admin screen uses a different nonce.
 				if (
 					( array_key_exists( 'admin', $_REQUEST ) &&
@@ -3112,9 +3137,10 @@ EOF;
 					'last_trkpt_speed_mph' => number_format( (float) $row['speed'] * 2.23693629, 2 ),
 				);
 				if ( $row['user_id'] ) {
-					$metadata['userid'] = $row['user_id'];
+                                        $metadata['userid'] = $row['user_id'];
 					$metadata['userlogin'] = $this -> get_user_id( (int) $row['user_id'], 'user_login' );
 					$metadata['displayname'] = $this -> get_user_id( (int) $row['user_id'], 'display_name' );
+					$metadata['trackname'] = $row['name'];
 				}
 				return array_merge( $metadata, $extra_metadata );
 			}
@@ -3401,7 +3427,7 @@ EOF;
 				printf( $format,
 					esc_html__( 'With live tracking, an information bar can be shown on the map, displaying some data from the latest trackpoint. ' .
 					'Here you can format the content of the infobar. Possible replacement tags are {lat}, {lon}, {timestamp}, {altitude}, ' .
-					'{speedms}, {speedkmh}, {speedmph}, {userid}, {userlogin}, {displayname}.', 'trackserver' ) );
+					'{speedms}, {speedkmh}, {speedmph}, {userid}, {userlogin}, {displayname}, {trackname}.', 'trackserver' ) );
 			}
 
 			function profiles_html() {

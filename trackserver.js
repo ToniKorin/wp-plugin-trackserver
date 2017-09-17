@@ -64,6 +64,7 @@ var Trackserver = (function () {
             this.set_mydata(options.div_id, options.track_id, 'userid', o.metadata.userid);
             this.set_mydata(options.div_id, options.track_id, 'userlogin', o.metadata.userlogin);
             this.set_mydata(options.div_id, options.track_id, 'displayname', o.metadata.displayname);
+            this.set_mydata(options.div_id, options.track_id, 'trackname', o.metadata.trackname);
             return o.track;
         },
 
@@ -187,6 +188,7 @@ var Trackserver = (function () {
                         var userlogin   = alltracks[track_id].metadata.userlogin;
                         var displayname = alltracks[track_id].metadata.displayname;
                         var follow_id   = alltracks[track_id].metadata.follow;
+                        var trackname   = alltracks[track_id].metadata.trackname;
 
                         var stored_follow_id = _this.get_mydata(div_id, 'all', 'follow_id');
                         if (stored_follow_id ) {
@@ -260,6 +262,9 @@ var Trackserver = (function () {
                                         }
                                     });
                                 markers.push(end_marker);
+                                if (mymapdata.label) {
+                                    end_marker.bindTooltip(trackname, {className: 'trackserver-tooltip', permanent: true}).openTooltip();
+                                }
                             }
                             _this.set_mydata(div_id, track_id, 'markers', markers);
                             if (track_index == 0 && layer_index < 2) {
@@ -320,6 +325,7 @@ var Trackserver = (function () {
                                 infobar_text = infobar_text.replace(/\{userid\}/gi, userid);
                                 infobar_text = infobar_text.replace(/\{userlogin\}/gi, userlogin);
                                 infobar_text = infobar_text.replace(/\{displayname\}/gi, displayname);
+                                infobar_text = infobar_text.replace(/\{trackname\}/gi, trackname);
                                 mymapdata.infobar_div.innerHTML = infobar_text;
                             }
                         }
@@ -475,26 +481,27 @@ var Trackserver = (function () {
 
                 if (mymapdata.tracks && mymapdata.tracks.length > 0) {
 
-                    // Add a featuregroup to hold the track layers
-                    var featuregroup = L.featureGroup().addTo(map);
-                    mymapdata.featuregroup = featuregroup;
+                // Add a featuregroup to hold the track layers
+                var featuregroup = L.featureGroup().addTo(map);
+                mymapdata.featuregroup = featuregroup;
 
-                    // Load and display the tracks. Use the liveupdate control to do it when appropriate.
-                    if (mymapdata.is_live) {
-                        var mapdivelement = L.DomUtil.get(mymapdata.div_id);
-                        var infobar_container = L.DomUtil.create('div', 'trackserver-infobar-container', mapdivelement);
-                        mymapdata.infobar_div = L.DomUtil.create('div', 'trackserver-infobar', infobar_container);
-                        L.control.liveupdate ({
-                            mymapdata: mymapdata,
-                            update_map: L.bind(this.update_tracks, this)
-                        })
-                        .addTo( map )
-                        .startUpdating();
-                    }
-                    else {
-                        this.draw_tracks(mymapdata);
-                    }
+                // Load and display the tracks. Use the liveupdate control to do it when appropriate.
+                if (mymapdata.is_live) {
+                    var mapdivelement = L.DomUtil.get(mymapdata.div_id);
+                    var infobar_container = L.DomUtil.create('div', 'trackserver-infobar-container', mapdivelement);
+                    mymapdata.infobar_div = L.DomUtil.create('div', 'trackserver-infobar', infobar_container);
+                    L.control.liveupdate ({
+                        mymapdata: mymapdata,
+                        update_map: L.bind(this.update_tracks, this),
+                        interval: mymapdata.interval
+                    })
+                    .addTo( map )
+                    .startUpdating();
                 }
+                else {
+                    this.draw_tracks(mymapdata);
+                }
+            }
                 else {
                     var popup = L.popup()
                         .setLatLng(mymapdata.center)

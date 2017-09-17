@@ -48,8 +48,8 @@ This plugin was written by Martijn Grendelman. It includes some code and librari
 
 For the [tsmap] shortcode:
 
-* track: one or more track IDs, separated by commas, or 'live' (deprecated,
-  'user=@' is preferred).
+* track: one or more track IDs, separated by commas or range (e.g 9-50), 
+  or 'live' (deprecated, 'user=@' is preferred).
 * id: an alias for 'track'
 * user: one or more user IDs, separated by commas, who's latest track to follow
   'live'. A literal '@' means the author of the post (you). When viewing the
@@ -61,6 +61,7 @@ For the [tsmap] shortcode:
 * live: true (or 't', 'yes' or 'y'), or false (default), to force live tracking
   for this map. This can be used for example with an externally updated GPX or
   KML file.
+* interval: live update interval in seconds, default 10 sec
 * maxage: the maximum age of a live track for it to be included
   on the map. If this parameter is given, all user tracks that
   have not been updated in the last X amount of time, will not be
@@ -84,6 +85,7 @@ For the [tsmap] shortcode:
   quotes (kml="http://....kml http://....kml"). If enabled in the settings, when
   a url is prefixed with the string 'proxy:', the request is proxied through
   Trackserver.
+* label: true (or 't', 'yes' or 'y'), false (default), show track name as label of marker
 * infobar: true (or 't', 'yes' or 'y'), false (default), or a template string,
   to specify whether an information bar should be shown on the map, when live
   tracking is active. This only works with 'track=live' or the 'user' parameter,
