@@ -6,6 +6,7 @@ var Trackserver = (function () {
         mydata: {},
         timer: false,
         adminmap: false,
+        firstDraw : true,
 
         Mapicon: L.CircleMarker.extend({
             options: {
@@ -81,6 +82,13 @@ var Trackserver = (function () {
 
         do_draw: function(i, mymapdata) {
 
+            var track_type = mymapdata.tracks[i].track_type;
+            if (!this.firstDraw && mymapdata.is_ext_live===false 
+                    && (track_type === 'gpx' || track_type === 'kml')){
+                //console.log("skip external gpx/kml files");
+                return;
+            }         
+            
             var map = mymapdata.map;
             var featuregroup = mymapdata.featuregroup;
             var div_id = mymapdata.div_id;
@@ -109,6 +117,7 @@ var Trackserver = (function () {
                 div_id: div_id,
                 track_id: track_id,
             };
+            //console.log(mymapdata.tracks[i].style.color);
 
             if (mymapdata.tracks[i].points) {
 
@@ -131,7 +140,7 @@ var Trackserver = (function () {
 
             var customLayer = L.geoJson(null, layer_options);
             var track_function, track_ref;
-            var track_type = mymapdata.tracks[i].track_type;
+            //console.log(mymapdata.tracks[i]);
 
             if ( track_type == 'polyline' ) {
                 track_function = omnivore.polyline.parse;
@@ -149,6 +158,7 @@ var Trackserver = (function () {
             }
 
             if ( track_type == 'gpx' ) {
+                //console.log("GPX");
                 track_function = omnivore.gpx;
                 track_ref = mymapdata.tracks[i].track_url;
                 track_options = { 'div_id': div_id };
@@ -159,7 +169,7 @@ var Trackserver = (function () {
                 track_ref = mymapdata.tracks[i].track_url;
                 track_options = { 'div_id': div_id };
             }
-
+            //console.log(track_options);
             // First draw the new track...
             var runLayer = track_function(track_ref, track_options, customLayer )
                 .on ('ready', function (e) {
@@ -256,7 +266,7 @@ var Trackserver = (function () {
                             if (do_markers === true || do_markers == 'end') {
                                 end_marker = new _this.Mapicon(end_latlng, { fillColor: end_marker_color, track_id: track_id }).addTo(featuregroup).bringToBack()
                                     .on('click', function(e) {
-                                        if (mymapdata.is_live) {
+                                        if (mymapdata.is_live || mymapdata.is_ext_live) {
                                             _this.set_mydata(div_id, 'all', 'follow_id', this.options.track_id);
                                             map.liveUpdateControl.updateNow();
                                         }
@@ -307,7 +317,7 @@ var Trackserver = (function () {
                     // wait for all tracks to be drawn and then set the
                     // viewport of the map to contain all of them.
 
-                    if (mymapdata.is_live) {
+                    if (mymapdata.is_live || mymapdata.is_ext_live) {
                         if (track_id == follow_id) {
 
                             // Center the map on the last point / current position
@@ -389,6 +399,7 @@ var Trackserver = (function () {
                             if ( mymapdata.tracks[i].track_type == 'polyline' ) {
 
                                 // Workaround for https://github.com/tinuzz/wp-plugin-trackserver/issues/7
+                                //console.log("alltracksPromise");
                                 if ( mymapdata.tracks[i].track_id in alltracks ) {
                                     _this.do_draw(i, mymapdata);
                                 }
@@ -424,9 +435,11 @@ var Trackserver = (function () {
 
                     // draw the rest the old fashioned way
                     this.do_draw(i, mymapdata);
+                    //console.log("old fashioned:"+ mymapdata.tracks[i].track_type);
 
                 }
             }
+            this.firstDraw = false;
         },
 
         // Callback function to update the track.
@@ -486,7 +499,7 @@ var Trackserver = (function () {
                 mymapdata.featuregroup = featuregroup;
 
                 // Load and display the tracks. Use the liveupdate control to do it when appropriate.
-                if (mymapdata.is_live) {
+                if (mymapdata.is_live || mymapdata.is_ext_live) {
                     var mapdivelement = L.DomUtil.get(mymapdata.div_id);
                     var infobar_container = L.DomUtil.create('div', 'trackserver-infobar-container', mapdivelement);
                     mymapdata.infobar_div = L.DomUtil.create('div', 'trackserver-infobar', infobar_container);

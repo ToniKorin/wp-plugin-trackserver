@@ -17,6 +17,7 @@ and protocols are supported for getting tracks into trackserver:
 * [MapMyTracks protocol](https://github.com/MapMyTracks/api) for example using [OruxMaps](http://www.oruxmaps.com/index_en.html)
 * [OsmAnd](http://osmand.net/) live tracking
 * HTTP POST, for example using [AutoShare](https://play.google.com/store/apps/details?id=com.dngames.autoshare)
+* [Team Locator](https://sites.google.com/site/teamlocator2015/tracking-server)
 
 A shortcode is provided for displaying your tracks on a map. Maps are displayed
 using the fantastic [Leaflet library](http://leafletjs.com/) and some useful Leaflet plugins
@@ -66,7 +67,8 @@ For the [tsmap] shortcode:
   on the map. If this parameter is given, all user tracks that
   have not been updated in the last X amount of time, will not be
   displayed. The value is a time expression in the form of a
-  number and a unit, for example: '120s', '30m', '2h', '3d'.
+  number and a unit, for example: '120s', '30m', '2h', '3d'. 
+  If you need to get only the latest location, the value should be 'latest". 
 * width: map width, default: 100%.
 * height: map height, default: 480px.
 * align: 'left', 'center' or 'right', default: not set.
@@ -127,17 +129,18 @@ order will be preserved within each track type, different track types are
 evaluated in a specific order, and styling values are applied in that order
 too. The order is:
 
-1. Static tracks (track=a,b,c)
-2. Live user tracks (user=x,y,z)
-3. GPX tracks (gpx=...)
-4. KML tracks (kml=...)
+1. GPX tracks (gpx=...)
+2. KML tracks (kml=...)
+3. Static tracks (track=a,b,c)
+4. Live user tracks (user=x,y,z)
+
 
 To prevent confusion, I suggest you specify tracks in this order in your shortcode too.
 
 Example: [tsmap gpx=/url/for/file.gpx user=jim track=10,99 color=red,blue,green,yellow]
 
-In this case, the GPX track will be yellow, Jim's live track will be green and
-tracks 10 and 99 will be red and blue respectively.
+In this case, the GPX track will be red, Jim's live track will be blue and
+tracks 10 and 99 will be green and yellow respectively.
 
 
 In a feature request I was asked to make it possible to draw just a marker on the
