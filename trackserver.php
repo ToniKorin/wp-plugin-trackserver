@@ -2204,7 +2204,7 @@ EOF;
                 $user_id = $this -> validate_user_meta_key( $username, $key, 'ts_sendlocation_key' );
                 
                 $trackname = urldecode( $_GET['trackname'] );
-                if ( $trackname != '' ){
+                if ( $trackname == null || $trackname == '' ){
                     // SendLocation doesn't send a timestamp
                     $ts = current_time( 'timestamp' );
                     $occurred = date( 'Y-m-d H:i:s', $ts );
