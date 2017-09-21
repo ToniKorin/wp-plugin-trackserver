@@ -2879,13 +2879,13 @@ EOF;
                     if ($maxage < 0){ // only latest location from each track
                         $res = array();
                         foreach ($track_ids as $track_id) {
-                            $sql = 'SELECT trip_id, latitude, longitude, altitude, speed, occurred, t.user_id, t.name, t.distance, t.comment FROM ' . $this -> tbl_locations .
+                            $sql = 'SELECT trip_id, latitude, longitude, altitude, speed, heading, occurred, t.user_id, t.name, t.distance, t.comment FROM ' . $this -> tbl_locations .
                                 ' l INNER JOIN ' . $this -> tbl_tracks . ' t ON l.trip_id = t.id WHERE trip_id=' . $track_id . ' ORDER BY occurred DESC limit 1';
                             $res = array_merge($res, $wpdb -> get_results( $sql, ARRAY_A ));
                         }
                     } else { // default branch
                         $sql_in = "('" . implode("','", $track_ids) . "')";
-                        $sql = 'SELECT trip_id, latitude, longitude, altitude, speed, occurred, t.user_id, t.name, t.distance, t.comment FROM ' . $this -> tbl_locations .
+                        $sql = 'SELECT trip_id, latitude, longitude, altitude, speed, heading, occurred, t.user_id, t.name, t.distance, t.comment FROM ' . $this -> tbl_locations .
                             ' l INNER JOIN ' . $this -> tbl_tracks . ' t ON l.trip_id = t.id WHERE trip_id IN ' . $sql_in . ' ORDER BY trip_id, occurred';
                         $res = $wpdb -> get_results( $sql, ARRAY_A );                        
                     }
@@ -3148,9 +3148,10 @@ EOF;
                     'last_trkpt_speed_ms' => number_format( $row['speed'], 2 ),
                     'last_trkpt_speed_kmh' => number_format( (float) $row['speed'] * 3.6, 2 ),
                     'last_trkpt_speed_mph' => number_format( (float) $row['speed'] * 2.23693629, 2 ),
+                    'last_trkpt_heading' =>  ( isset( $row['heading']) ? $row['heading'] : -1 )
                 );
                 if ( $row['user_id'] ) {
-                                        $metadata['userid'] = $row['user_id'];
+                    $metadata['userid'] = $row['user_id'];
                     $metadata['userlogin'] = $this -> get_user_id( (int) $row['user_id'], 'user_login' );
                     $metadata['displayname'] = $this -> get_user_id( (int) $row['user_id'], 'display_name' );
                     $metadata['trackname'] = $row['name'];

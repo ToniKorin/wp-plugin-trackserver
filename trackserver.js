@@ -7,6 +7,9 @@ var Trackserver = (function () {
         timer: false,
         adminmap: false,
         firstDraw : true,
+        box: false,
+        countDown: 0,
+        updateCounter: 0,
 
         Mapicon: L.CircleMarker.extend({
             options: {
@@ -62,6 +65,7 @@ var Trackserver = (function () {
             this.set_mydata(options.div_id, options.track_id, 'speed_ms', o.metadata.last_trkpt_speed_ms);
             this.set_mydata(options.div_id, options.track_id, 'speed_kmh', o.metadata.last_trkpt_speed_kmh);
             this.set_mydata(options.div_id, options.track_id, 'speed_mph', o.metadata.last_trkpt_speed_mph);
+            this.set_mydata(options.div_id, options.track_id, 'heading', o.metadata.last_trkpt_heading);
             this.set_mydata(options.div_id, options.track_id, 'userid', o.metadata.userid);
             this.set_mydata(options.div_id, options.track_id, 'userlogin', o.metadata.userlogin);
             this.set_mydata(options.div_id, options.track_id, 'displayname', o.metadata.displayname);
@@ -194,6 +198,7 @@ var Trackserver = (function () {
                         var speed_ms    = alltracks[track_id].metadata.last_trkpt_speed_ms;
                         var speed_kmh   = alltracks[track_id].metadata.last_trkpt_speed_kmh;
                         var speed_mph   = alltracks[track_id].metadata.last_trkpt_speed_mph;
+                        var heading     = alltracks[track_id].metadata.last_trkpt_heading;
                         var userid      = alltracks[track_id].metadata.userid;
                         var userlogin   = alltracks[track_id].metadata.userlogin;
                         var displayname = alltracks[track_id].metadata.displayname;
@@ -252,28 +257,32 @@ var Trackserver = (function () {
                         }
 
                         if (do_markers) {
+                            var start_marker_color;
                             if ((track_index == 0 && layer_index <= 1) || !mymapdata.continuous) {
                                 start_marker_color = '#009c0c';   // green
                             } else {
                                 start_marker_color = '#ffcf00';   // yellow
                             }
-                            end_marker_color = '#c30002';         // red
+                            var end_marker_color = '#c30002';         // red
 
                             if (do_markers === true || do_markers == 'start') {
                                 start_marker = new _this.Mapicon(start_latlng, { fillColor: start_marker_color }).addTo(featuregroup);
                                 markers.push(start_marker);
                             }
                             if (do_markers === true || do_markers == 'end') {
-                                end_marker = new _this.Mapicon(end_latlng, { fillColor: end_marker_color, track_id: track_id }).addTo(featuregroup).bringToBack()
-                                    .on('click', function(e) {
-                                        if (mymapdata.is_live || mymapdata.is_ext_live) {
-                                            _this.set_mydata(div_id, 'all', 'follow_id', this.options.track_id);
-                                            map.liveUpdateControl.updateNow();
-                                        }
-                                    });
+                                var headingArrow = _this.getHeadingArrow(end_latlng, heading, speed_ms);    
+                                if (headingArrow){
+                                    //console.log("headingArrow:"+ heading + "/" + speed_ms);
+                                    headingArrow.addTo(featuregroup).on('click', function(e) { _this.followTrack(track_id, mymapdata);});
+                                    markers.push(headingArrow);
+                                }        
+                                end_marker = new _this.Mapicon(end_latlng, { fillColor: end_marker_color, track_id: track_id })
+                                    .addTo(featuregroup).bringToBack()
+                                    .on('click', function(e) { _this.followTrack(track_id, mymapdata);});
                                 markers.push(end_marker);
                                 if (mymapdata.label) {
-                                    end_marker.bindTooltip(trackname, {className: 'trackserver-tooltip', permanent: true}).openTooltip();
+                                    end_marker.bindTooltip(trackname, {className: 'trackserver-tooltip', permanent: true, interactive: true})
+                                        .openTooltip();
                                 }
                             }
                             _this.set_mydata(div_id, track_id, 'markers', markers);
@@ -332,6 +341,7 @@ var Trackserver = (function () {
                                 infobar_text = infobar_text.replace(/\{speedms\}/gi, speed_ms);
                                 infobar_text = infobar_text.replace(/\{speedkmh\}/gi, speed_kmh);
                                 infobar_text = infobar_text.replace(/\{speedmph\}/gi, speed_mph);
+                                infobar_text = infobar_text.replace(/\{heading\}/gi, heading);
                                 infobar_text = infobar_text.replace(/\{userid\}/gi, userid);
                                 infobar_text = infobar_text.replace(/\{userlogin\}/gi, userlogin);
                                 infobar_text = infobar_text.replace(/\{displayname\}/gi, displayname);
@@ -371,6 +381,30 @@ var Trackserver = (function () {
                 runLayer.fire('ready');
             }
 
+        },
+        
+        getHeadingArrow: function(point, heading, speed){
+            if (speed > 0 && heading >= 0){
+                var arrowSvgPart1 = '<div> <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-12 0 96 96" preserveAspectRatio="xMidYMid meet"> <g transform="rotate(';
+                var arrowSvgPart2 = ' 36 48) scale(.4)" fill="#FF0000" fill-opacity="0.6" id="compass"> <path d="M87 223 c-4 -6 -20 -46 -36 -89 -16 -44 -34 -92 -40 -107 l-11 -29 46 26 47 26 43 -25 44 -26 -31 83 c-17 46 -37 98 -43 117 -7 19 -15 30 -19 24z"/> </g> </svg> </div>';
+                var arrow = L.divIcon({
+                        html: (arrowSvgPart1 + (heading - 180) + arrowSvgPart2),
+                        iconSize: L.point(0,0), // 24,24
+                        iconAnchor: L.point(12,12)
+                    });
+                return L.marker( point,{icon: arrow, zIndexOffset: 0});
+            }
+            else{
+                return false;
+            }
+        },
+        
+        followTrack: function(track_id, mymapdata){
+            //console.log("followTrack click:" + track_id );
+            if (mymapdata.is_live || mymapdata.is_ext_live) {
+                this.set_mydata(mymapdata.div_id, 'all', 'follow_id', track_id);
+                mymapdata.map.liveUpdateControl.updateNow();
+            }
         },
 
         draw_tracks: function (mymapdata) {
@@ -445,7 +479,19 @@ var Trackserver = (function () {
         // Callback function to update the track.
         // Wrapper for 'draw_tracks' that gets its data from the liveupdate object.
         update_tracks: function (liveupdate) {
-            this.draw_tracks(liveupdate.options.mymapdata);
+            if(document.hidden){
+                //console.log("Tab not visible, skip update");
+            } else {
+                var mymapdata = liveupdate.options.mymapdata;
+                this.draw_tracks(mymapdata);
+                // To limit max 100 repeating autoupdate
+                this.updateCounter++;
+                if (this.updateCounter > 100 && mymapdata.map.liveUpdateControl){
+                    mymapdata.map.liveUpdateControl.stopUpdating()
+                    this.box.show("Auto-stopped");
+                    this.updateCounter = 0;
+                }
+            }
         },
 
         create_maps: function () {
@@ -500,16 +546,35 @@ var Trackserver = (function () {
 
                 // Load and display the tracks. Use the liveupdate control to do it when appropriate.
                 if (mymapdata.is_live || mymapdata.is_ext_live) {
+                    this.box = L.control.messagebox({position:'topright', timeout:false}).addTo(map);
+                    this.countDown = mymapdata.interval / 1000;
+                    this.box.show(this.countDown);
                     var mapdivelement = L.DomUtil.get(mymapdata.div_id);
                     var infobar_container = L.DomUtil.create('div', 'trackserver-infobar-container', mapdivelement);
                     mymapdata.infobar_div = L.DomUtil.create('div', 'trackserver-infobar', infobar_container);
                     L.control.liveupdate ({
                         mymapdata: mymapdata,
                         update_map: L.bind(this.update_tracks, this),
-                        interval: mymapdata.interval
+                        interval: mymapdata.interval,
+                        position: 'topright'
                     })
                     .addTo( map )
                     .startUpdating();
+                    var _this = this;
+                    setInterval(function(){
+                        if(map.liveUpdateControl.isUpdating()){
+                            _this.countDown--;
+                            if (_this.countDown == 0){
+                                _this.countDown=mymapdata.interval / 1000;
+                                _this.box.show("Updating tracks...");
+                            } else {
+                                _this.box.show(_this.countDown);
+                            }
+                        } else {
+                            _this.countDown=mymapdata.interval / 1000;
+                            _this.updateCounter = 0;
+                        }
+                    },1000);
                 }
                 else {
                     this.draw_tracks(mymapdata);
