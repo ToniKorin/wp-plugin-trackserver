@@ -6,10 +6,6 @@ var Trackserver = (function () {
         mydata: {},
         timer: false,
         adminmap: false,
-        firstDraw : true,
-        box: false,
-        countDown: 0,
-        updateCounter: 0,
 
         Mapicon: L.CircleMarker.extend({
             options: {
@@ -87,7 +83,7 @@ var Trackserver = (function () {
         do_draw: function(i, mymapdata) {
 
             var track_type = mymapdata.tracks[i].track_type;
-            if (!this.firstDraw && mymapdata.is_ext_live===false 
+            if (!mymapdata.firstDraw && mymapdata.is_ext_live===false 
                     && (track_type === 'gpx' || track_type === 'kml')){
                 //console.log("skip external gpx/kml files");
                 return;
@@ -473,7 +469,7 @@ var Trackserver = (function () {
 
                 }
             }
-            this.firstDraw = false;
+            mymapdata.firstDraw = false;
         },
 
         // Callback function to update the track.
@@ -485,11 +481,11 @@ var Trackserver = (function () {
                 var mymapdata = liveupdate.options.mymapdata;
                 this.draw_tracks(mymapdata);
                 // To limit max 100 repeating autoupdate
-                this.updateCounter++;
-                if (this.updateCounter > 100 && mymapdata.map.liveUpdateControl){
+                mymapdata.updateCounter++;
+                if (mymapdata.updateCounter > 100 && mymapdata.map.liveUpdateControl){
                     mymapdata.map.liveUpdateControl.stopUpdating()
-                    this.box.show("Auto-stopped");
-                    this.updateCounter = 0;
+                    mymapdata.box.show("Auto-stopped");
+                    mymapdata.updateCounter = 0;
                 }
             }
         },
@@ -528,6 +524,8 @@ var Trackserver = (function () {
                 var map = L.map( mymapdata.div_id, options );
                 mymapdata.map = map;
                 mymapdata.center = center;
+                mymapdata.firstDraw = true;
+                mymapdata.updateCounter = 0;
 
                 // An ugly shortcut to be able to destroy the map in WP admin
                 if ( mymapdata.div_id == 'tsadminmap' ) {
@@ -546,9 +544,9 @@ var Trackserver = (function () {
 
                 // Load and display the tracks. Use the liveupdate control to do it when appropriate.
                 if (mymapdata.is_live || mymapdata.is_ext_live) {
-                    this.box = L.control.messagebox({position:'topright', timeout:false}).addTo(map);
-                    this.countDown = mymapdata.interval / 1000;
-                    this.box.show(this.countDown);
+                    mymapdata.box = L.control.messagebox({position:'topright', timeout:false}).addTo(map);
+                    mymapdata.countdown = mymapdata.interval / 1000;
+                    mymapdata.box.show(mymapdata.countdown);
                     var mapdivelement = L.DomUtil.get(mymapdata.div_id);
                     var infobar_container = L.DomUtil.create('div', 'trackserver-infobar-container', mapdivelement);
                     mymapdata.infobar_div = L.DomUtil.create('div', 'trackserver-infobar', infobar_container);
@@ -563,16 +561,16 @@ var Trackserver = (function () {
                     var _this = this;
                     setInterval(function(){
                         if(map.liveUpdateControl.isUpdating()){
-                            _this.countDown--;
-                            if (_this.countDown == 0){
-                                _this.countDown=mymapdata.interval / 1000;
-                                _this.box.show("Updating tracks...");
+                            mymapdata.countdown--;
+                            if (mymapdata.countdown == 0){
+                                mymapdata.countdown=mymapdata.interval / 1000;
+                                mymapdata.box.show("Updating tracks...");
                             } else {
-                                _this.box.show(_this.countDown);
+                                mymapdata.box.show(mymapdata.countdown);
                             }
                         } else {
-                            _this.countDown=mymapdata.interval / 1000;
-                            _this.updateCounter = 0;
+                            mymapdata.countdown=mymapdata.interval / 1000;
+                            mymapdata.updateCounter = 0;
                         }
                     },1000);
                 }
