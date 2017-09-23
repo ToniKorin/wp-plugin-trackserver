@@ -251,6 +251,8 @@ var Trackserver = (function () {
                             //  No tracks, no points? No markers.
                             continue;
                         }
+                        
+                        layer.on('click', function(e) { _this.followTrack(track_id, mymapdata);});
 
                         if (do_markers) {
                             var start_marker_color;
@@ -277,7 +279,11 @@ var Trackserver = (function () {
                                     .on('click', function(e) { _this.followTrack(track_id, mymapdata);});
                                 markers.push(end_marker);
                                 if (mymapdata.label) {
-                                    end_marker.bindTooltip(trackname, {className: 'trackserver-tooltip', permanent: true, interactive: true})
+                                    var name = trackname;
+                                    if ( track_type == 'gpx' && layer.feature &&  layer.feature.properties && layer.feature.properties.name){
+                                        name = layer.feature.properties.name;
+                                    }
+                                    end_marker.bindTooltip(name, {className: 'trackserver-tooltip', permanent: true, interactive: true})
                                         .openTooltip();
                                 }
                             }
@@ -429,7 +435,7 @@ var Trackserver = (function () {
                             if ( mymapdata.tracks[i].track_type == 'polyline' ) {
 
                                 // Workaround for https://github.com/tinuzz/wp-plugin-trackserver/issues/7
-                                //console.log("alltracksPromise");
+                                //console.log("alltracksPromise:" + i );
                                 if ( mymapdata.tracks[i].track_id in alltracks ) {
                                     _this.do_draw(i, mymapdata);
                                 }
@@ -502,6 +508,7 @@ var Trackserver = (function () {
                 var center     = L.latLng(lat, lon);
 
                 var mymapdata  = mapdata[i];
+                console.log("create_map (" + i + ") tracks count:" + mymapdata.tracks.length);
 
                 /*
                  * The map div in the admin screen is re-used when viewing multiple maps.
@@ -558,7 +565,6 @@ var Trackserver = (function () {
                     })
                     .addTo( map )
                     .startUpdating();
-                    var _this = this;
                     setInterval(function(){
                         if(map.liveUpdateControl.isUpdating()){
                             mymapdata.countdown--;

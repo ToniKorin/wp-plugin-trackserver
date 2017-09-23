@@ -1135,13 +1135,13 @@ EOF;
                 if ( count( $track_ids ) == 0 ) return array();
 
                 if (strpos($track_ids[0], '-') !== false) {
-                                    echo 'ID range'; // then ignore others
-                                    $minMax = explode('-', $track_ids[0]);
-                                    $minMax = array_map( 'intval', array_filter( $minMax, 'is_numeric' ) );
+                    echo 'ID range'; // then ignore others
+                    $minMax = explode('-', $track_ids[0]);
+                    $minMax = array_map( 'intval', array_filter( $minMax, 'is_numeric' ) );
                 } else {
-                                    // Remove all non-numeric values from the tracks array and prepare query
-                                    $track_ids = array_map( 'intval', array_filter( $track_ids, 'is_numeric' ) );
-                                    $sql_in = "('" . implode("','", $track_ids) . "')";
+                    // Remove all non-numeric values from the tracks array and prepare query
+                    $track_ids = array_map( 'intval', array_filter( $track_ids, 'is_numeric' ) );
+                    $sql_in = "('" . implode("','", $track_ids) . "')";
                 }
 
                 // If the author has the power, don't check the track's owner
@@ -1253,7 +1253,8 @@ EOF;
                     $track_ids = explode( ',', $atts['track'] );
                     // Backward compatibility
                     if ( in_array( 'live', $track_ids ) ) {
-                        $validated_user_ids[] = $author_id;
+                        $validated_user_ids[] = $author_id; 
+                        unset($track_ids[array_search('live',$track_ids)]);
                     }
                     $validated_track_ids = $this -> validate_track_ids( $track_ids, $author_id );
                 }
@@ -1509,18 +1510,20 @@ EOF;
 
                     $live_tracks = $this -> get_live_tracks( $validated_user_ids, $maxage );
                     foreach ($live_tracks as $validated_id) {
-                        $tracks[] = array(
-                            'track_id'   => $validated_id,
-                            'track_type' => $this -> track_format,
-                            'style'      => $this -> get_style(),
-                            'points'     => $this -> get_points(),
-                            'markers'    => $this -> get_markers(),
-                        );
+                        if (!in_array($validated_id, $validated_track_ids)){
+                            $validated_track_ids[] = $validated_id; 
+                            $tracks[] = array(
+                                'track_id'   => $validated_id,
+                                'track_type' => $this -> track_format,
+                                'style'      => $this -> get_style(),
+                                'points'     => $this -> get_points(),
+                                'markers'    => $this -> get_markers(),
+                            );
+                        }
                     }
 
-                    $all_track_ids = array_merge( $validated_track_ids, $live_tracks );
-                    if ( count( $all_track_ids ) ) {
-                        $sql_in = "('" . implode("','", $all_track_ids) . "')";
+                    if ( count( $validated_track_ids ) ) {
+                        $sql_in = "('" . implode("','", $validated_track_ids) . "')";
                         $sql = 'SELECT AVG(latitude) FROM ' . $this -> tbl_locations . ' WHERE trip_id IN ' . $sql_in;
                         $result = $wpdb -> get_var( $sql );
                         if ( $result ) $default_lat = $result;
