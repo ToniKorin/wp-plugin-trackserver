@@ -1135,7 +1135,7 @@ EOF;
                 if ( count( $track_ids ) == 0 ) return array();
 
                 if (strpos($track_ids[0], '-') !== false) {
-                    echo 'ID range'; // then ignore others
+                    //echo 'ID range'; // then ignore others
                     $minMax = explode('-', $track_ids[0]);
                     $minMax = array_map( 'intval', array_filter( $minMax, 'is_numeric' ) );
                 } else {
@@ -1556,7 +1556,7 @@ EOF;
                     'alltracks'    => $alltracks_url,
                     'fit'          => $fit,
                     'label'        => $label,
-                    'interval'    => $interval 
+                    'interval'     => $interval 
                 );
 
                 if ($infobar) {
@@ -3444,7 +3444,7 @@ EOF;
                 printf( $format,
                     esc_html__( 'With live tracking, an information bar can be shown on the map, displaying some data from the latest trackpoint. ' .
                     'Here you can format the content of the infobar. Possible replacement tags are {lat}, {lon}, {timestamp}, {altitude}, ' .
-                    '{speedms}, {speedkmh}, {speedmph}, {userid}, {userlogin}, {displayname}, {trackname}.', 'trackserver' ) );
+                    '{speedms}, {speedkmh}, {speedmph}, {userid}, {userlogin}, {displayname}, {trackname}, {track_count}.', 'trackserver' ) );
             }
 
             function profiles_html() {

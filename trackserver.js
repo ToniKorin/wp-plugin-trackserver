@@ -348,6 +348,7 @@ var Trackserver = (function () {
                                 infobar_text = infobar_text.replace(/\{userlogin\}/gi, userlogin);
                                 infobar_text = infobar_text.replace(/\{displayname\}/gi, displayname);
                                 infobar_text = infobar_text.replace(/\{trackname\}/gi, trackname);
+                                infobar_text = infobar_text.replace(/\{track_count\}/gi, mymapdata.tracks.length);
                                 mymapdata.infobar_div.innerHTML = infobar_text;
                             }
                         }
@@ -489,7 +490,7 @@ var Trackserver = (function () {
                 // To limit max 100 repeating autoupdate
                 mymapdata.updateCounter++;
                 if (mymapdata.updateCounter > 100 && mymapdata.map.liveUpdateControl){
-                    mymapdata.map.liveUpdateControl.stopUpdating()
+                    mymapdata.map.liveUpdateControl.stopUpdating();
                     mymapdata.box.show("Auto-stopped");
                     mymapdata.updateCounter = 0;
                 }
@@ -579,6 +580,7 @@ var Trackserver = (function () {
                             mymapdata.updateCounter = 0;
                         }
                     },1000);
+                    mymapdata.map.liveUpdateControl.stopUpdating(); // better that user activates liveupdate
                 }
                 else {
                     this.draw_tracks(mymapdata);
