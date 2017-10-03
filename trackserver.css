@@ -17,3 +17,20 @@
 .trackserver-tooltip {
 	padding: 0px !important;
 }
+
+.leaflet-control-fullscreen a {
+    background-size:100% !important;
+}
+
+.leaflet-control-liveupdate a {
+    background-size:100% !important;
+}
+
+.leaflet-fullscreen-on .leaflet-control-fullscreen a {
+    background-position:0 bottom !important;
+}
+
+.leaflet-liveupdate-on a {
+    background-position:0 bottom !important;
+}
+
